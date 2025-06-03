@@ -4,8 +4,7 @@
 #include <bitset>
 #include <vector>
 
-
-const char KEY = 0xCCDC;
+const char KEY = 0xCCDCDAABBEEFF;
 std::string GetMasterPassword()
 {
 	std::string master_password;
@@ -45,25 +44,31 @@ std::string GetPasswordInBinary(const std::string& password)
 	return binaryText;
 }
 
-void EncryptPassword(const std::string& password, const char key)
+std::string EncryptPassword(const std::string& password, const char key)
 {
-	char encryted_char;
-	
-	for (const char bin : password)
+	std::string text;
+	for (char bin : password)
 	{
-		 encryted_char ^= key;
+		char encryted_char = bin ^ key;
+		text += encryted_char;
 	}
+	return text;
 }
-void DisplayMenu()
+int DisplayMenu()
 {
+	int choice;
 	std::cout << "1.Add Password\n2.Retrieve Saved Passwords\n3.Delete Password\nExit\n";
+	std::cin >> choice;
 
+	return choice;
 }
 
-void AddNewPassword()
+void AddNewPassword(const std::string& filepath)
 {
+
 	std::string user, app_name,password;
 	std::cout << "Enter UserName: ";
+	std::cin.ignore();
 	std::getline(std::cin, user);
 
 	std::cout << "Enter Application Name: ";
@@ -71,13 +76,86 @@ void AddNewPassword()
 
 	std::cout << "Enter New Password: ";
 	std::getline(std::cin, password);
+	
+	password = GetPasswordInBinary(password);
+	password = EncryptPassword(password, KEY);
 
+	std::ofstream file(filepath,std::ios::app);
+	if (file.is_open())
+	{
+		file << "______________________________________" << std::endl;
+		file << "APP NAME: " << app_name << std::endl;
+		file << "USERNAME: " << user << std::endl;
+		file << "PASSWORD: " << password << std::endl;
+		file << "______________________________________" << std::endl;
+	}
+	file.close();
 
 }
 
+void DeletePassword(const std::string& filepath)
+{
+	std::ifstream file(filepath);
+	if (file.is_open())
+	{
+		std::string line, name, app;
+		while (std::getline(file, line))
+		{
+		}
+	}
+}
+std::string RetrievePassword(const std::string& filepath)
+{
+	std::ifstream file(filepath);
+	std::string user,app_name,line,password;
+	std::cout << "Enter UserName: ";
+	std::getline(std::cin, user);
+
+	std::cout << "Enter Application Name: ";
+	std::getline(std::cin, app_name);
+
+	if (file.is_open())
+	{
+		while (std::getline(file,line))
+		{
+			if (line.find(user) != std::string::npos && line.find(app_name) != std::string::npos)
+			{
+				password = line.find(line.substr(line.find("PASSWORD: ") + 1));
+			}
+		}
+	}
+	
+	file.close();
+	return password;
+}
 int main()
 {
+	int choice;
+	std::string pwd;
 
+	std::string filepath = "encryptedpasswords.txt";
+	choice = DisplayMenu();
+
+	switch (choice)
+	{
+	case 1:
+		AddNewPassword(filepath);
+		break;
+	case 2:
+		pwd = RetrievePassword(filepath);
+		if (!pwd.empty())
+			std::cout << "PASSWORD: " << pwd << std::endl;
+		break;
+	case 3:
+		DeletePassword(filepath);
+		break;
+	case 4:
+		std::exit(0);
+		break;
+	default:
+		std::cout << "Invalid Input" << std::endl;
+		break;
+	}
 
 	std::cin.get();
 }
