@@ -4,48 +4,71 @@
 #include <bitset>
 #include <vector>
 
+
 const char KEY = 0xCCDCDAABBEEFF;
 std::string GetMasterPassword()
 {
-	std::string master_password;
+	/*
+		Takes master password and return it if the characters are more than four
+	
+	*/
+	std::string master_password,pwd;
 	std::cout << "Enter Master Password: ";
 	std::getline(std::cin, master_password);
 
 	if (master_password.size() < 4)
+	{
+		std::cout << "Master password should be more than 4 characters" << std::endl;
 		return GetMasterPassword();
+	}
 	return master_password;
 }
 
-std::vector<std::bitset<16>> ConvertToBinary(const std::string& ascii)
+std::vector<std::bitset<8>> ConvertToBinary(const std::string& ascii)
 {	
-	std::vector<std::bitset<16>> binary;
+	/*
+		it accept a string of ascii values,convert it into a binary format
+		in 8bits then append it into the end of a vector container
+		then return the entire container
+	*/
+	std::vector<std::bitset<8>> binary;
 	for (const char ch : ascii)
 	{
-		binary.emplace_back(std::bitset<16>(ch));
+		binary.emplace_back(std::bitset<8>(ch));
 	}
 	return binary;
 }
 
 std::string GetPasswordInBinary(const std::string& password)
 {
+
+	/*
+		takes in a string argument of password then convert each character into it's 
+		ascii value then combines the values into a string and returns it
+
+	*/
 	std::string binary;
-	std::vector<std::bitset<16>> text;
+	std::vector<std::bitset<8>> text;
 	std::string binaryText;
 	for (const char bin : password)
 	{	
 		binary = toascii(bin);
 		text = ConvertToBinary(binary);
-		
+
 		for (const auto& val : text)
-			binaryText += val.to_string();
-		
+		binaryText += val.to_string();
+
 	}
-	
 	return binaryText;
 }
 
 std::string EncryptPassword(const std::string& password, const char key)
 {
+	/*
+	
+	
+	
+	*/
 	std::string text;
 	for (char bin : password)
 	{
@@ -57,7 +80,7 @@ std::string EncryptPassword(const std::string& password, const char key)
 int DisplayMenu()
 {
 	int choice;
-	std::cout << "1.Add Password\n2.Retrieve Saved Passwords\n3.Delete Password\nExit\n";
+	std::cout << "1.Add Password\n2.Retrieve Saved Passwords\n3.Delete Password\n4.Exit\n";
 	std::cin >> choice;
 
 	return choice;
@@ -66,7 +89,7 @@ int DisplayMenu()
 void AddNewPassword(const std::string& filepath)
 {
 
-	std::string user, app_name,password;
+	std::string user, app_name, password;
 	std::cout << "Enter UserName: ";
 	std::cin.ignore();
 	std::getline(std::cin, user);
@@ -76,14 +99,14 @@ void AddNewPassword(const std::string& filepath)
 
 	std::cout << "Enter New Password: ";
 	std::getline(std::cin, password);
-	
+
 	password = GetPasswordInBinary(password);
+	std::cout << password;
 	password = EncryptPassword(password, KEY);
 
-	std::ofstream file(filepath,std::ios::app);
+	std::ofstream file(filepath, std::ios::app);
 	if (file.is_open())
 	{
-		file << "______________________________________" << std::endl;
 		file << "APP NAME: " << app_name << std::endl;
 		file << "USERNAME: " << user << std::endl;
 		file << "PASSWORD: " << password << std::endl;
@@ -95,45 +118,92 @@ void AddNewPassword(const std::string& filepath)
 
 void DeletePassword(const std::string& filepath)
 {
-	std::ifstream file(filepath);
+	std::string app, user;
+
+	std::cout << "Enter UserName: ";
+	std::cin.ignore();
+	std::getline(std::cin, user);
+
+	std::cout << "Enter App Name: ";
+	std::getline(std::cin, app);
+
+
+	std::fstream file(filepath);
 	if (file.is_open())
 	{
-		std::string line, name, app;
-		while (std::getline(file, line))
+		std::vector<std::string> line;
+		std::string text, name, app;
+		while (!file.eof())
 		{
+			file >> text;
+			if (!text.find(app) && !text.find(user))
+				line.emplace_back(text);
+
 		}
 	}
 }
+
+std::string DecryptPassword(const std::string& pwd, const char& key)
+{
+	std::vector<std::bitset<8>>binary;
+	std::string decrypt;
+	for (char ch : pwd)
+	{
+		binary.emplace_back(ch ^ key);
+
+	}
+	for (const auto& ch : binary)
+	{
+		std::cout << ch;
+		decrypt += static_cast<char>(ch.to_ulong());
+	}
+	return decrypt;
+}
 std::string RetrievePassword(const std::string& filepath)
 {
-	std::ifstream file(filepath);
-	std::string user,app_name,line,password;
+	std::ifstream file(filepath,std::ios::binary);
+	std::string user, line, password, master_pwd;
+
 	std::cout << "Enter UserName: ";
+	std::cin.ignore();
 	std::getline(std::cin, user);
 
-	std::cout << "Enter Application Name: ";
-	std::getline(std::cin, app_name);
+	std::cout << "Enter Master Password: ";
+	std::getline(std::cin, master_pwd);
 
 	if (file.is_open())
 	{
-		while (std::getline(file,line))
+		while (std::getline(file, line))
 		{
-			if (line.find(user) != std::string::npos && line.find(app_name) != std::string::npos)
+			std::cout << line.substr(line.find("PASSWORD: ") + 10);
+
+			if (line.find(user)!=std::string::npos)
 			{
-				password = line.find(line.substr(line.find("PASSWORD: ") + 1));
+				/*password = line.substr(line.find("PASSWORD: ") + 15);
+				return password;*/
 			}
 		}
 	}
 	
 	file.close();
-	return password;
+	return "";
 }
+
 int main()
 {
 	int choice;
-	std::string pwd;
+	std::string m_pwd;
 
 	std::string filepath = "encryptedpasswords.txt";
+	std::string master_pwd,pwd;
+	//master_pwd = GetMasterPassword();
+
+	pwd = GetPasswordInBinary(master_pwd);
+	pwd = EncryptPassword(pwd, KEY);
+	std::ofstream file(filepath, std::ios::app);
+	//file << "MASTER: " << pwd << std::endl;
+
+
 	choice = DisplayMenu();
 
 	switch (choice)
@@ -142,9 +212,11 @@ int main()
 		AddNewPassword(filepath);
 		break;
 	case 2:
-		pwd = RetrievePassword(filepath);
-		if (!pwd.empty())
-			std::cout << "PASSWORD: " << pwd << std::endl;
+		m_pwd = RetrievePassword(filepath);
+		if (!m_pwd.empty())
+		{
+			std::cout << "Password: " << DecryptPassword(m_pwd, KEY) << std::endl;
+		}
 		break;
 	case 3:
 		DeletePassword(filepath);
