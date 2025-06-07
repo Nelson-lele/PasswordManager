@@ -5,7 +5,7 @@
 #include <vector>
 
 
-const char KEY = 0xCCDCDAABBEEFF;
+const char KEY = 0xAA;
 std::string GetMasterPassword()
 {
 	/*
@@ -88,7 +88,11 @@ int DisplayMenu()
 
 void AddNewPassword(const std::string& filepath)
 {
-
+	/*
+		Allows you to add password to encrypted password 
+		to a file 
+	
+	*/
 	std::string user, app_name, password;
 	std::cout << "Enter UserName: ";
 	std::cin.ignore();
@@ -101,7 +105,6 @@ void AddNewPassword(const std::string& filepath)
 	std::getline(std::cin, password);
 
 	password = GetPasswordInBinary(password);
-	std::cout << password;
 	password = EncryptPassword(password, KEY);
 
 	std::ofstream file(filepath, std::ios::app);
@@ -110,7 +113,6 @@ void AddNewPassword(const std::string& filepath)
 		file << "APP NAME: " << app_name << std::endl;
 		file << "USERNAME: " << user << std::endl;
 		file << "PASSWORD: " << password << std::endl;
-		file << "______________________________________" << std::endl;
 	}
 	file.close();
 
@@ -143,48 +145,75 @@ void DeletePassword(const std::string& filepath)
 	}
 }
 
-std::string DecryptPassword(const std::string& pwd, const char& key)
+std::string DecryptPassword(const std::string& pwd, const char key)
 {
+	/*
+		Decrypt the encrypted using XOR decryption to its original
+		text then returns the decrypted text
+	
+	*/
 	std::vector<std::bitset<8>>binary;
+	std::string bit;
 	std::string decrypt;
 	for (char ch : pwd)
 	{
-		binary.emplace_back(ch ^ key);
 
+		bit += ch ^ key;
+		if (bit.size() == 8)
+		{
+			binary.emplace_back(bit);
+			bit = "";
+		}
 	}
+		
 	for (const auto& ch : binary)
 	{
-		std::cout << ch;
 		decrypt += static_cast<char>(ch.to_ulong());
 	}
 	return decrypt;
 }
 std::string RetrievePassword(const std::string& filepath)
 {
-	std::ifstream file(filepath,std::ios::binary);
-	std::string user, line, password, master_pwd;
+	std::ifstream file(filepath);
 
-	std::cout << "Enter UserName: ";
+	if (!file)
+	{
+		std::cerr << "Unable to open file" << std::endl;
+		return "";
+	}
+
+	std::string user, password, master_pwd;
+	std::string line;
+	std::cout << "Enter App Name: ";
 	std::cin.ignore();
 	std::getline(std::cin, user);
 
 	std::cout << "Enter Master Password: ";
 	std::getline(std::cin, master_pwd);
-
+	
 	if (file.is_open())
 	{
 		while (std::getline(file, line))
 		{
-			std::cout << line.substr(line.find("PASSWORD: ") + 10);
-
-			if (line.find(user)!=std::string::npos)
+			if (line.find("MASTER: ") != std::string::npos)
 			{
-				/*password = line.substr(line.find("PASSWORD: ") + 15);
-				return password;*/
+				std::string master = line.substr(line.find("MASTER: ") + 8);
+				if (master_pwd != DecryptPassword(master, KEY))
+				{
+					std::getline(file, line);
+					if (line.find("APP NAME: " + user) != std::string::npos)
+					{
+						std::getline(file, line);
+						std::getline(file, line);
+						if (line.find("PASSWORD: ") != std::string::npos)
+							return line.substr(line.find("PASSWORD: ") + 10);
+					}
+				}
 			}
 		}
+		std::cout << "Error: Invalid Credentials" << std::endl;
+
 	}
-	
 	file.close();
 	return "";
 }
@@ -200,10 +229,9 @@ int main()
 
 	pwd = GetPasswordInBinary(master_pwd);
 	pwd = EncryptPassword(pwd, KEY);
-	std::ofstream file(filepath, std::ios::app);
+	//std::ofstream file(filepath);
 	//file << "MASTER: " << pwd << std::endl;
-
-
+	
 	choice = DisplayMenu();
 
 	switch (choice)
@@ -229,5 +257,7 @@ int main()
 		break;
 	}
 
+
 	std::cin.get();
+
 }
