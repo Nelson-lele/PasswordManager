@@ -90,7 +90,7 @@ void AddNewPassword(const std::string& filepath)
 {
 	/*
 		Allows you to add password to encrypted password 
-		to a file 
+		to a file with a username and unique application name
 	
 	*/
 	std::string user, app_name, password;
@@ -104,6 +104,15 @@ void AddNewPassword(const std::string& filepath)
 	std::cout << "Enter New Password: ";
 	std::getline(std::cin, password);
 
+	std::fstream out(filepath);
+	std::string line;
+
+	while (std::getline(out, line))
+	{
+		if (line.find("APP NAME: " + app_name) != std::string::npos)
+			return AddNewPassword(filepath);
+	}
+
 	password = GetPasswordInBinary(password);
 	password = EncryptPassword(password, KEY);
 
@@ -113,6 +122,8 @@ void AddNewPassword(const std::string& filepath)
 		file << "APP NAME: " << app_name << std::endl;
 		file << "USERNAME: " << user << std::endl;
 		file << "PASSWORD: " << password << std::endl;
+		std::cout << "Password added successfully" << std::endl;
+
 	}
 	file.close();
 
@@ -120,7 +131,11 @@ void AddNewPassword(const std::string& filepath)
 
 void DeletePassword(const std::string& filepath)
 {
-	std::string app, user;
+	std::ifstream file(filepath);
+	std::ofstream out("temp.txt");
+
+	bool skipNextLine = false;
+	std::string line, app, user;
 
 	std::cout << "Enter UserName: ";
 	std::cin.ignore();
@@ -129,20 +144,30 @@ void DeletePassword(const std::string& filepath)
 	std::cout << "Enter App Name: ";
 	std::getline(std::cin, app);
 
-
-	std::fstream file(filepath);
 	if (file.is_open())
 	{
-		std::vector<std::string> line;
-		std::string text, name, app;
-		while (!file.eof())
+		while (std::getline(file, line))
 		{
-			file >> text;
-			if (!text.find(app) && !text.find(user))
-				line.emplace_back(text);
-
+			if (line.find("APP NAME: " + app) != std::string::npos)
+			{
+				skipNextLine = true;
+			}
+			else if (line.find("USERNAME: " + user) != std::string::npos)
+			{
+				skipNextLine = true;
+			}
+			else if (skipNextLine && line.find("PASSWORD: ") != std::string::npos)
+			{
+				skipNextLine = false;
+			}
+			else
+				out << line << std::endl;
 		}
 	}
+	file.close();
+	out.close();
+	std::remove(filepath.c_str());
+	std::rename("temp.txt", filepath.c_str());
 }
 
 std::string DecryptPassword(const std::string& pwd, const char key)
@@ -217,20 +242,40 @@ std::string RetrievePassword(const std::string& filepath)
 	file.close();
 	return "";
 }
+void CheckMasterPassword(const std::string filepath, const char key)
+{
+	/*
+		Checks if master password has already been registered if not
+		get master password encrypt it and save into a file
+	*/
+	std::string master_pwd,pwd,line;
+	
 
+	std::fstream file(filepath,std::ios::app);
+	if (file.is_open())
+	{
+		while (std::getline(file, line))
+		{
+			if (line.find("MASTER: ") != std::string::npos)
+			{
+				std::cout << "Master credentials already exists" << std::endl;
+			}
+		}
+		master_pwd = GetMasterPassword();
+		pwd = GetPasswordInBinary(master_pwd);
+		pwd = EncryptPassword(pwd, KEY);
+		file << "MASTER: " << pwd << std::endl;
+		std::cout << "Saved Successfully" << std::endl;
+	}
+	file.close();
+	
+}
 int main()
 {
 	int choice;
 	std::string m_pwd;
 
 	std::string filepath = "encryptedpasswords.txt";
-	std::string master_pwd,pwd;
-	//master_pwd = GetMasterPassword();
-
-	pwd = GetPasswordInBinary(master_pwd);
-	pwd = EncryptPassword(pwd, KEY);
-	//std::ofstream file(filepath);
-	//file << "MASTER: " << pwd << std::endl;
 	
 	choice = DisplayMenu();
 
@@ -245,6 +290,7 @@ int main()
 		{
 			std::cout << "Password: " << DecryptPassword(m_pwd, KEY) << std::endl;
 		}
+		std::cout << "Password doesn't exists" << std::endl;
 		break;
 	case 3:
 		DeletePassword(filepath);
@@ -256,8 +302,6 @@ int main()
 		std::cout << "Invalid Input" << std::endl;
 		break;
 	}
-
-
 	std::cin.get();
 
 }
