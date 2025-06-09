@@ -131,6 +131,13 @@ void AddNewPassword(const std::string& filepath)
 
 void DeletePassword(const std::string& filepath)
 {
+	/*
+		Open passwords file check if there exists a password with a specific username
+		and application name if so then it rewrites the entire into temporary file
+		without that user credentials 
+		then removes the old file and rename to new file with old file's name
+	
+	*/
 	std::ifstream file(filepath);
 	std::ofstream out("temp.txt");
 
@@ -199,8 +206,14 @@ std::string DecryptPassword(const std::string& pwd, const char key)
 }
 std::string RetrievePassword(const std::string& filepath)
 {
+	/*
+		Check if password registered with a certain application name exists
+		and check if the provided master password matches the master password saved in the file
+		if so it returns the decrypted form of the stored password
+	
+	*/
 	std::ifstream file(filepath);
-
+	std::ifstream out(filepath);
 	if (!file)
 	{
 		std::cerr << "Unable to open file" << std::endl;
@@ -208,7 +221,7 @@ std::string RetrievePassword(const std::string& filepath)
 	}
 
 	std::string user, password, master_pwd;
-	std::string line;
+	std::string line,text;
 	std::cout << "Enter App Name: ";
 	std::cin.ignore();
 	std::getline(std::cin, user);
@@ -216,29 +229,32 @@ std::string RetrievePassword(const std::string& filepath)
 	std::cout << "Enter Master Password: ";
 	std::getline(std::cin, master_pwd);
 	
-	if (file.is_open())
+	master_pwd = GetPasswordInBinary(master_pwd);
+	master_pwd = EncryptPassword(master_pwd, KEY);
+	
+	while (std::getline(file, line))
 	{
-		while (std::getline(file, line))
+		if (line.find("MASTER: " + master_pwd) != std::string::npos)
 		{
-			if (line.find("MASTER: ") != std::string::npos)
-			{
-				std::string master = line.substr(line.find("MASTER: ") + 8);
-				if (master_pwd != DecryptPassword(master, KEY))
-				{
-					std::getline(file, line);
-					if (line.find("APP NAME: " + user) != std::string::npos)
-					{
-						std::getline(file, line);
-						std::getline(file, line);
-						if (line.find("PASSWORD: ") != std::string::npos)
-							return line.substr(line.find("PASSWORD: ") + 10);
-					}
-				}
-			}
+			//Master password provided is correct
 		}
-		std::cout << "Error: Invalid Credentials" << std::endl;
 
 	}
+	
+	while (std::getline(out, text))
+	{
+		if (text.find("APP NAME: " + user) != std::string::npos)
+		{
+			std::getline(out, text);
+			std::getline(out, text);
+
+			if (text.find("PASSWORD: ") != std::string::npos)
+				return text.substr(text.find("PASSWORD: ") + 10);
+		}
+	}
+	std::cout << "Error: Invalid Credentials" << std::endl;
+
+	
 	file.close();
 	return "";
 }
@@ -250,24 +266,25 @@ void CheckMasterPassword(const std::string filepath, const char key)
 	*/
 	std::string master_pwd,pwd,line;
 	
+	std::ifstream file(filepath);
+	std::ofstream out(filepath, std::ios::app);
 
-	std::fstream file(filepath,std::ios::app);
-	if (file.is_open())
+	master_pwd = GetMasterPassword();
+	pwd = GetPasswordInBinary(master_pwd);
+	pwd = EncryptPassword(pwd, KEY);
+
+	while (std::getline(file, line))
 	{
-		while (std::getline(file, line))
+		if (line.find("MASTER: ") != std::string::npos)
 		{
-			if (line.find("MASTER: ") != std::string::npos)
-			{
-				std::cout << "Master credentials already exists" << std::endl;
-			}
+			std::cout << "Master credentials already exists" << std::endl;
+			return;
 		}
-		master_pwd = GetMasterPassword();
-		pwd = GetPasswordInBinary(master_pwd);
-		pwd = EncryptPassword(pwd, KEY);
-		file << "MASTER: " << pwd << std::endl;
-		std::cout << "Saved Successfully" << std::endl;
 	}
+	out << "MASTER: " << pwd << std::endl;
+	std::cout << "Saved Successfully" << std::endl;
 	file.close();
+	out.close();
 	
 }
 int main()
@@ -276,32 +293,32 @@ int main()
 	std::string m_pwd;
 
 	std::string filepath = "encryptedpasswords.txt";
-	
-	choice = DisplayMenu();
+	//CheckMasterPassword(filepath, KEY);
+	do {
+		choice = DisplayMenu();
 
-	switch (choice)
-	{
-	case 1:
-		AddNewPassword(filepath);
-		break;
-	case 2:
-		m_pwd = RetrievePassword(filepath);
-		if (!m_pwd.empty())
+		switch (choice)
 		{
-			std::cout << "Password: " << DecryptPassword(m_pwd, KEY) << std::endl;
+		case 1:
+			AddNewPassword(filepath);
+			break;
+		case 2:
+			m_pwd = RetrievePassword(filepath);
+			if (!m_pwd.empty())
+			{
+				std::cout << "Password: " << DecryptPassword(m_pwd, KEY) << std::endl;
+			}
+			break;
+		case 3:
+			DeletePassword(filepath);
+			break;
+		case 4:
+			std::exit(0);
+			break;
+		default:
+			std::cout << "Invalid Input" << std::endl;
+			break;
 		}
-		std::cout << "Password doesn't exists" << std::endl;
-		break;
-	case 3:
-		DeletePassword(filepath);
-		break;
-	case 4:
-		std::exit(0);
-		break;
-	default:
-		std::cout << "Invalid Input" << std::endl;
-		break;
-	}
+	} while (choice != 4);
 	std::cin.get();
-
 }
